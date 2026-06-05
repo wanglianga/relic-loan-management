@@ -1,0 +1,11 @@
+node_modules
+dist
+target
+.git
+.idea
+.vscode
+*.md
+.env*
+*.class
+*.jar
+!backend/target/*.jar
