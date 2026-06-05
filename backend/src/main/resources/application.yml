@@ -21,3 +21,5 @@ spring:
   jackson:
     date-format: yyyy-MM-dd HH:mm:ss
     time-zone: GMT+8
+    deserialization:
+      adjust-dates-to-context-time-zone: false

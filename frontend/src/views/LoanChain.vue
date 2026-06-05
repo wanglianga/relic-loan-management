@@ -11,7 +11,7 @@
         <el-icon class="is-loading" :size="32"><Loading /></el-icon>
         <div style="margin-top: 10px; color: #999">加载中...</div>
       </div>
-      <div v-else-if="chainData.loan">
+      <div v-else-if="chainData.loanApplication">
         <ChainTimeline :chain-data="chainData" />
       </div>
       <div v-else style="text-align: center; padding: 40px; color: #999">暂无链路数据</div>

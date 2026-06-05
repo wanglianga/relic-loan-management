@@ -75,7 +75,7 @@ async function fetchData() {
 }
 
 function openDialog() {
-  form.value = { loanId: null, displayCaseCondition: '', securityPlan: '', temperature: 20, humidity: 50, monitorDate: '' }
+  form.value = { loanApplicationId: null, showcaseCondition: '', securityPlan: '', temperature: 20, humidity: 50, monitoringDate: '' }
   dialogVisible.value = true
 }
 

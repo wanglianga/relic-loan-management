@@ -108,13 +108,16 @@ async function fetchData() {
 }
 
 function openDialog() {
-  form.value = { loanId: null, humidityBox: '', escort: '', route: '', departureTime: '', arrivalTime: '' }
+  form.value = { loanApplicationId: null, humidityBox: '', escortPersonnel: '', route: '', departureTime: '', arrivalTime: '' }
   dialogVisible.value = true
 }
 
 async function handleSubmit() {
   try {
-    await createTransport({ ...form.value, status: 'IN_TRANSIT', vibrationExceeded: false })
+    const payload = { ...form.value }
+    if (!payload.departureTime) delete payload.departureTime
+    if (!payload.arrivalTime) delete payload.arrivalTime
+    await createTransport(payload)
     ElMessage.success('创建成功')
     dialogVisible.value = false
     fetchData()

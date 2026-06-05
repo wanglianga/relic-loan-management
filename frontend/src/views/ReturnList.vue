@@ -74,7 +74,7 @@ async function fetchData() {
 }
 
 function openDialog() {
-  form.value = { loanId: null, returnCondition: '', returnTo: '', returnDate: '', isOverdue: false, overdueReason: '' }
+  form.value = { loanApplicationId: null, returnCondition: '', returnedTo: '', returnDate: '', isExtension: false, extensionReason: '' }
   dialogVisible.value = true
 }
 

@@ -83,13 +83,15 @@ async function fetchData() {
 }
 
 function openDialog() {
-  form.value = { loanId: null, handoverType: '', fromParty: '', toParty: '', conditionDescription: '', photoUrl: '', handoverTime: '' }
+  form.value = { loanApplicationId: null, handoverType: '', handlerFrom: '', handlerTo: '', conditionDescription: '', photos: '', handoverTime: '' }
   dialogVisible.value = true
 }
 
 async function handleSubmit() {
   try {
-    await createHandover(form.value)
+    const payload = { ...form.value }
+    if (!payload.handoverTime) delete payload.handoverTime
+    await createHandover(payload)
     ElMessage.success('创建成功')
     dialogVisible.value = false
     fetchData()

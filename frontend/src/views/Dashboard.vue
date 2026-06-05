@@ -117,7 +117,7 @@ const abnormalEvents = computed(() => {
   })
   store.monitorings.forEach(m => {
     if (m.conditionCompliant === false) {
-      events.push({ type: 'danger', time: m.monitorDate || '', title: '条件不符', detail: `温度: ${m.temperature}℃ 湿度: ${m.humidity}%` })
+      events.push({ type: 'danger', time: m.monitoringDate || '', title: '条件不符', detail: `温度: ${m.temperature}℃ 湿度: ${m.humidity}%` })
     }
   })
   store.insurances.forEach(ins => {

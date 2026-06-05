@@ -93,7 +93,7 @@ async function fetchData() {
 }
 
 function openDialog() {
-  form.value = { contractNo: '', artifactId: null, lender: '', venue: '', startDate: '', endDate: '' }
+  form.value = { contractNumber: '', artifactId: null, applicantMuseum: '', borrowingVenue: '', startDate: '', endDate: '' }
   dialogVisible.value = true
 }
 
