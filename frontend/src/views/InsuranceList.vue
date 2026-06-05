@@ -20,10 +20,11 @@
         </el-table-column>
         <el-table-column prop="validFrom" label="有效期起" width="120" />
         <el-table-column prop="validTo" label="有效期止" width="120" />
-        <el-table-column label="操作" width="200" fixed="right">
+        <el-table-column label="操作" width="250" fixed="right">
           <template #default="{ row }">
             <el-button size="small" @click="openDialog(row)">编辑</el-button>
             <el-button v-if="row.status === 'DRAFT'" size="small" type="success" @click="confirmPolicy(row)">确认保单</el-button>
+            <el-button size="small" @click="viewValuationHistory(row)">估值版本</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -59,35 +60,46 @@
       </template>
     </el-dialog>
 
-    <el-card v-if="adjustments.length > 0" shadow="hover" style="margin-top: 20px">
-      <template #header>
-        <span style="font-weight: 600">估值调整记录</span>
-      </template>
-      <el-table :data="adjustments" stripe style="width: 100%">
-        <el-table-column prop="policyNumber" label="保单号" width="140" />
-        <el-table-column prop="insuredAmount" label="保险金额(万元)" width="140" />
-        <el-table-column prop="valuationAdjustments" label="估值调整" />
-      </el-table>
-    </el-card>
+    <el-dialog v-model="historyDialogVisible" title="保单估值版本历史" width="900px" destroy-on-close>
+      <div v-if="currentPolicy">
+        <p style="margin-bottom: 16px; font-weight: 600">保单 {{ currentPolicy.policyNumber }} - 估值版本历史</p>
+        <el-table :data="valuationHistory" stripe style="width: 100%">
+          <el-table-column prop="createdAt" label="调整时间" width="180" />
+          <el-table-column prop="originalValue" label="原估值(万元)" width="120" />
+          <el-table-column prop="newValue" label="新估值(万元)" width="120" />
+          <el-table-column label="调整类型" width="100">
+            <template #default="{ row }">
+              <el-tag :type="row.isValueIncrease ? 'danger' : 'success'" size="small">
+                {{ row.isValueIncrease ? '上调' : '下调' }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="adjustmentReason" label="调整原因" />
+          <el-table-column prop="appraisalInstitution" label="评估机构" width="140" />
+          <el-table-column prop="insuranceTermsChange" label="保险条款变化" width="180" />
+          <el-table-column prop="additionalPremium" label="新增保费(万元)" width="140" />
+          <el-table-column prop="originalValuationBasis" label="原估值依据" width="200" show-overflow-tooltip />
+        </el-table>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { getInsurances, createInsurance, updateInsurance } from '../api'
+import { ref, onMounted } from 'vue'
+import { getInsurances, createInsurance, updateInsurance, getValuationAdjustmentsByPolicy } from '../api'
 import { ElMessage } from 'element-plus'
 import StatusTag from '../components/StatusTag.vue'
 
 const tableData = ref([])
 const dialogVisible = ref(false)
+const historyDialogVisible = ref(false)
 const isEdit = ref(false)
 const editId = ref(null)
+const currentPolicy = ref(null)
+const valuationHistory = ref([])
 const form = ref({
   policyNumber: '', loanApplicationId: null, insuredAmount: 0, deductible: 0, terms: '', validFrom: '', validTo: ''
-})
-
-const adjustments = computed(() => {
-  return tableData.value.filter(item => item.valuationAdjustments != null && item.valuationAdjustments !== '')
 })
 
 onMounted(() => { fetchData() })
@@ -109,7 +121,7 @@ function openDialog(row) {
   } else {
     isEdit.value = false
     editId.value = null
-    form.value = { policyNo: '', loanId: null, coverageAmount: 0, deductible: 0, terms: '', validFrom: '', validTo: '' }
+    form.value = { policyNumber: '', loanApplicationId: null, insuredAmount: 0, deductible: 0, terms: '', validFrom: '', validTo: '' }
   }
   dialogVisible.value = true
 }
@@ -137,6 +149,17 @@ async function confirmPolicy(row) {
     fetchData()
   } catch (e) {
     ElMessage.error('确认失败')
+  }
+}
+
+async function viewValuationHistory(row) {
+  currentPolicy.value = row
+  try {
+    const res = await getValuationAdjustmentsByPolicy(row.id)
+    valuationHistory.value = res.data
+    historyDialogVisible.value = true
+  } catch (e) {
+    ElMessage.error('获取估值版本历史失败')
   }
 }
 </script>

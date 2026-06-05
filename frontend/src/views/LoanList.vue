@@ -21,13 +21,14 @@
             <StatusTag :status="row.status" />
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="280" fixed="right">
+        <el-table-column label="操作" width="350" fixed="right">
           <template #default="{ row }">
             <el-button v-if="row.status === 'APPLIED'" size="small" type="success" @click="changeStatus(row, 'INSURANCE_CONFIRMED')">确认保单</el-button>
             <el-button v-if="row.status === 'INSURANCE_CONFIRMED'" size="small" type="warning" @click="changeStatus(row, 'PACKED')">确认装箱</el-button>
             <el-button v-if="row.status === 'PACKED'" size="small" type="warning" @click="changeStatus(row, 'HANDED_OVER')">确认点交</el-button>
             <el-button v-if="row.status === 'HANDED_OVER'" size="small" type="primary" @click="changeStatus(row, 'EXHIBITING')">开始展期</el-button>
             <el-button v-if="row.status === 'EXHIBITING'" size="small" @click="changeStatus(row, 'RETURNED')">确认归还</el-button>
+            <el-button v-if="row.status === 'EXHIBITING' || row.status === 'OVERDUE'" size="small" type="success" @click="openExtendDialog(row)">延期展出</el-button>
             <el-button size="small" @click="goChain(row)">链路</el-button>
           </template>
         </el-table-column>
@@ -62,22 +63,46 @@
         <el-button type="primary" @click="handleSubmit">确定</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="extendDialogVisible" title="延期展出" width="500px" destroy-on-close>
+      <el-form :model="extendForm" label-width="120px">
+        <el-form-item label="当前结束日期">
+          <el-input :value="currentLoan?.endDate" disabled />
+        </el-form-item>
+        <el-form-item label="新结束日期" required>
+          <el-date-picker v-model="extendForm.newEndDate" type="date" value-format="YYYY-MM-DD" style="width: 100%" />
+        </el-form-item>
+        <el-form-item label="延期原因">
+          <el-input v-model="extendForm.extensionReason" type="textarea" :rows="2" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="extendDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="submitExtension">确认延期</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { getLoans, createLoan, updateLoanStatus, getArtifacts } from '../api'
-import { ElMessage } from 'element-plus'
+import { getLoans, createLoan, updateLoanStatus, getArtifacts, extendLoan, canExtendLoan } from '../api'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import StatusTag from '../components/StatusTag.vue'
 
 const router = useRouter()
 const tableData = ref([])
 const artifacts = ref([])
 const dialogVisible = ref(false)
+const extendDialogVisible = ref(false)
+const currentLoan = ref(null)
 const form = ref({
   contractNumber: '', artifactId: null, applicantMuseum: '', borrowingVenue: '', startDate: '', endDate: ''
+})
+const extendForm = ref({
+  newEndDate: '',
+  extensionReason: ''
 })
 
 onMounted(() => { fetchData() })
@@ -115,6 +140,44 @@ async function changeStatus(row, status) {
     fetchData()
   } catch (e) {
     ElMessage.error('状态更新失败')
+  }
+}
+
+async function openExtendDialog(row) {
+  currentLoan.value = row
+  extendForm.value = {
+    newEndDate: '',
+    extensionReason: ''
+  }
+  
+  try {
+    const res = await canExtendLoan(row.id)
+    if (!res.data.canExtend) {
+      ElMessageBox.alert(
+        '当前保额不足以覆盖藏品估值，无法确认展出延期。请先调整保单保额或与评估机构确认估值后再操作。',
+        '保额不足',
+        { type: 'warning', confirmButtonText: '我知道了' }
+      )
+      return
+    }
+    extendDialogVisible.value = true
+  } catch (e) {
+    ElMessage.error('检查延期条件失败')
+  }
+}
+
+async function submitExtension() {
+  if (!extendForm.value.newEndDate) {
+    ElMessage.warning('请选择新的结束日期')
+    return
+  }
+  try {
+    await extendLoan(currentLoan.value.id, extendForm.value)
+    ElMessage.success('延期成功')
+    extendDialogVisible.value = false
+    fetchData()
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || e.message || '延期失败')
   }
 }
 

@@ -24,10 +24,11 @@
         <el-table-column prop="humidityRequirement" label="恒湿要求" width="120" />
         <el-table-column prop="loanDeadline" label="借展期限" width="120" />
         <el-table-column prop="museumName" label="所属博物馆" width="140" />
-        <el-table-column label="操作" width="150" fixed="right">
+        <el-table-column label="操作" width="250" fixed="right">
           <template #default="{ row }">
             <el-button size="small" @click="openDialog(row)">编辑</el-button>
-            <el-button size="small" type="danger" @click="handleDelete(row)">删除</el-button>
+            <el-button size="small" type="success" @click="openValuationDialog(row)">调整估值</el-button>
+            <el-button size="small" @click="viewValuationHistory(row)">历史记录</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -69,23 +70,108 @@
         <el-button type="primary" @click="handleSubmit">确定</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="valuationDialogVisible" title="调整估值" width="700px" destroy-on-close>
+      <el-form :model="valuationForm" label-width="120px">
+        <el-form-item label="藏品名称">
+          <el-input :value="currentArtifact?.name" disabled />
+        </el-form-item>
+        <el-form-item label="当前估值(万元)">
+          <el-input-number :model-value="currentArtifact?.appraisedValue" disabled style="width: 100%" />
+        </el-form-item>
+        <el-form-item label="新估值(万元)" required>
+          <el-input-number v-model="valuationForm.newValue" :min="0" style="width: 100%" />
+        </el-form-item>
+        <el-form-item label="调整原因" required>
+          <el-input v-model="valuationForm.adjustmentReason" type="textarea" :rows="2" />
+        </el-form-item>
+        <el-form-item label="评估机构">
+          <el-input v-model="valuationForm.appraisalInstitution" />
+        </el-form-item>
+        <el-form-item label="关联借展ID">
+          <el-input-number v-model="valuationForm.loanApplicationId" :min="1" style="width: 100%" />
+        </el-form-item>
+        <el-form-item label="关联保单ID">
+          <el-input-number v-model="valuationForm.insurancePolicyId" :min="1" style="width: 100%" />
+        </el-form-item>
+        <el-form-item label="保险条款变化">
+          <el-input v-model="valuationForm.insuranceTermsChange" type="textarea" :rows="2" />
+        </el-form-item>
+        <el-form-item label="新增保费(万元)">
+          <el-input-number v-model="valuationForm.additionalPremium" :min="0" style="width: 100%" />
+        </el-form-item>
+        <el-form-item label="借展合同影响">
+          <el-input v-model="valuationForm.contractImpact" type="textarea" :rows="2" />
+        </el-form-item>
+        <el-form-item label="原估值依据">
+          <el-input v-model="valuationForm.originalValuationBasis" type="textarea" :rows="2" placeholder="估值下调时请填写原估值依据，以备争议查询" />
+        </el-form-item>
+        <el-form-item label="调整人">
+          <el-input v-model="valuationForm.adjustedBy" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="valuationDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="submitValuationAdjustment">提交调整</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="historyDialogVisible" title="估值调整历史记录" width="900px" destroy-on-close>
+      <div v-if="currentArtifact">
+        <p style="margin-bottom: 16px; font-weight: 600">{{ currentArtifact.name }} - 估值调整历史</p>
+        <el-table :data="valuationHistory" stripe style="width: 100%">
+          <el-table-column prop="createdAt" label="调整时间" width="180" />
+          <el-table-column prop="originalValue" label="原估值(万元)" width="120" />
+          <el-table-column prop="newValue" label="新估值(万元)" width="120" />
+          <el-table-column label="调整类型" width="100">
+            <template #default="{ row }">
+              <el-tag :type="row.isValueIncrease ? 'danger' : 'success'" size="small">
+                {{ row.isValueIncrease ? '上调' : '下调' }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="adjustmentReason" label="调整原因" />
+          <el-table-column prop="appraisalInstitution" label="评估机构" width="140" />
+          <el-table-column prop="adjustedBy" label="调整人" width="100" />
+        </el-table>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { getArtifacts, createArtifact, updateArtifact } from '../api'
+import { getArtifacts, createArtifact, updateArtifact, getValuationAdjustmentsByArtifact, createValuationAdjustment } from '../api'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const tableData = ref([])
 const dialogVisible = ref(false)
+const valuationDialogVisible = ref(false)
+const historyDialogVisible = ref(false)
 const isEdit = ref(false)
 const editId = ref(null)
 const searchName = ref('')
 const searchGrade = ref('')
+const currentArtifact = ref(null)
+const valuationHistory = ref([])
 
 const form = ref({
   name: '', category: '', grade: '', appraisedValue: 0, dimensions: '', humidityRequirement: '', loanDeadline: '', museumName: ''
+})
+
+const valuationForm = ref({
+  artifactId: null,
+  originalValue: null,
+  newValue: null,
+  adjustmentReason: '',
+  appraisalInstitution: '',
+  loanApplicationId: null,
+  insurancePolicyId: null,
+  insuranceTermsChange: '',
+  additionalPremium: null,
+  contractImpact: '',
+  originalValuationBasis: '',
+  adjustedBy: ''
 })
 
 const filteredData = computed(() => {
@@ -115,7 +201,7 @@ function openDialog(row) {
   } else {
     isEdit.value = false
     editId.value = null
-    form.value = { name: '', category: '', grade: '', valuation: 0, dimensions: '', humidityRequirement: '', loanPeriod: '', museum: '' }
+    form.value = { name: '', category: '', grade: '', appraisedValue: 0, dimensions: '', humidityRequirement: '', loanDeadline: '', museumName: '' }
   }
   dialogVisible.value = true
 }
@@ -133,6 +219,55 @@ async function handleSubmit() {
     fetchData()
   } catch (e) {
     ElMessage.error('操作失败')
+  }
+}
+
+function openValuationDialog(row) {
+  currentArtifact.value = row
+  valuationForm.value = {
+    artifactId: row.id,
+    originalValue: row.appraisedValue,
+    newValue: row.appraisedValue,
+    adjustmentReason: '',
+    appraisalInstitution: '',
+    loanApplicationId: null,
+    insurancePolicyId: null,
+    insuranceTermsChange: '',
+    additionalPremium: null,
+    contractImpact: '',
+    originalValuationBasis: '',
+    adjustedBy: ''
+  }
+  valuationDialogVisible.value = true
+}
+
+async function submitValuationAdjustment() {
+  if (!valuationForm.value.newValue) {
+    ElMessage.warning('请填写新估值')
+    return
+  }
+  if (!valuationForm.value.adjustmentReason) {
+    ElMessage.warning('请填写调整原因')
+    return
+  }
+  try {
+    await createValuationAdjustment(valuationForm.value)
+    ElMessage.success('估值调整成功')
+    valuationDialogVisible.value = false
+    fetchData()
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || e.message || '操作失败')
+  }
+}
+
+async function viewValuationHistory(row) {
+  currentArtifact.value = row
+  try {
+    const res = await getValuationAdjustmentsByArtifact(row.id)
+    valuationHistory.value = res.data
+    historyDialogVisible.value = true
+  } catch (e) {
+    ElMessage.error('获取历史记录失败')
   }
 }
 

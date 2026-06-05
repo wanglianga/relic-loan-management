@@ -143,6 +143,13 @@ npm run dev
 | 展期监测 | GET/POST /api/monitorings | 列表/创建 |
 | 撤展归还 | GET/POST /api/returns | 列表/创建 |
 | 链路查询 | GET /api/chain/{loanId} | 完整链路信息 |
+| 估值调整 | GET/POST /api/valuation-adjustments | 列表/创建估值调整 |
+| | GET /api/valuation-adjustments/artifact/{artifactId} | 按藏品查询历史 |
+| | GET /api/valuation-adjustments/loan/{loanId} | 按借展查询历史 |
+| | GET /api/valuation-adjustments/policy/{policyId} | 按保单查询历史 |
+| | GET /api/valuation-adjustments/check-sufficient/{loanId} | 检查保额是否充足 |
+| 借展延期 | POST /api/loans/{id}/extend | 申请展出延期（自动校验保额） |
+| | GET /api/loans/{id}/can-extend | 查询是否可延期 |
 
 ## 借展状态流转
 

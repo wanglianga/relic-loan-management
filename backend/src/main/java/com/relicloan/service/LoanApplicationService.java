@@ -2,9 +2,15 @@ package com.relicloan.service;
 
 import com.relicloan.dto.LoanApplicationRequest;
 import com.relicloan.dto.LoanApplicationResponse;
+import com.relicloan.dto.LoanExtensionRequest;
 import com.relicloan.dto.LoanStatusUpdateRequest;
+import com.relicloan.entity.Artifact;
+import com.relicloan.entity.InsurancePolicy;
 import com.relicloan.entity.LoanApplication;
 import com.relicloan.entity.LoanStatus;
+import com.relicloan.entity.PolicyStatus;
+import com.relicloan.repository.ArtifactRepository;
+import com.relicloan.repository.InsurancePolicyRepository;
 import com.relicloan.repository.LoanApplicationRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -17,6 +23,9 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class LoanApplicationService {
     private final LoanApplicationRepository loanApplicationRepository;
+    private final ArtifactRepository artifactRepository;
+    private final InsurancePolicyRepository insurancePolicyRepository;
+    private final ValuationAdjustmentService valuationAdjustmentService;
 
     private static final Map<LoanStatus, List<LoanStatus>> VALID_TRANSITIONS = Map.of(
             LoanStatus.APPLIED, List.of(LoanStatus.INSURANCE_CONFIRMED, LoanStatus.SUSPENDED),
@@ -80,6 +89,29 @@ public class LoanApplicationService {
                 .orElseThrow(() -> new RuntimeException("LoanApplication not found: " + id));
         loan.setStatus(LoanStatus.OVERDUE);
         loanApplicationRepository.save(loan);
+    }
+
+    public LoanApplicationResponse extendLoan(Long id, LoanExtensionRequest request) {
+        LoanApplication loan = loanApplicationRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("LoanApplication not found: " + id));
+
+        if (!valuationAdjustmentService.isInsuredAmountSufficient(id)) {
+            throw new RuntimeException("保额不足，无法确认展出延期。请先调整估值或增加保额。");
+        }
+
+        if (loan.getStatus() != LoanStatus.EXHIBITING && loan.getStatus() != LoanStatus.OVERDUE) {
+            throw new RuntimeException("只有展出中或逾期状态的借展才能申请延期。");
+        }
+
+        loan.setEndDate(request.getNewEndDate());
+        if (loan.getStatus() == LoanStatus.OVERDUE) {
+            loan.setStatus(LoanStatus.EXHIBITING);
+        }
+        return toResponse(loanApplicationRepository.save(loan));
+    }
+
+    public boolean canExtend(Long id) {
+        return valuationAdjustmentService.isInsuredAmountSufficient(id);
     }
 
     private void applyRequest(LoanApplication loan, LoanApplicationRequest request) {

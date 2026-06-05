@@ -35,6 +35,17 @@ export const getReturns = () => api.get('/api/returns')
 export const getReturn = (id) => api.get(`/api/returns/${id}`)
 export const createReturn = (data) => api.post('/api/returns', data)
 
+export const getValuationAdjustments = () => api.get('/api/valuation-adjustments')
+export const getValuationAdjustment = (id) => api.get(`/api/valuation-adjustments/${id}`)
+export const getValuationAdjustmentsByArtifact = (artifactId) => api.get(`/api/valuation-adjustments/artifact/${artifactId}`)
+export const getValuationAdjustmentsByLoan = (loanId) => api.get(`/api/valuation-adjustments/loan/${loanId}`)
+export const getValuationAdjustmentsByPolicy = (policyId) => api.get(`/api/valuation-adjustments/policy/${policyId}`)
+export const createValuationAdjustment = (data) => api.post('/api/valuation-adjustments', data)
+export const checkInsuredAmountSufficient = (loanId) => api.get(`/api/valuation-adjustments/check-sufficient/${loanId}`)
+
+export const extendLoan = (loanId, data) => api.post(`/api/loans/${loanId}/extend`, data)
+export const canExtendLoan = (loanId) => api.get(`/api/loans/${loanId}/can-extend`)
+
 export const getChain = (loanId) => api.get(`/api/chain/${loanId}`)
 
 export default api
